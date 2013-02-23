@@ -44,6 +44,7 @@ def main():
 
             if market_data['resultType'] == 'history':
                 if region_id != 10000002: break
+
                 most_recent = None
                 for row in rowset['rows']:
                     data = init_data(columns, row, generated_at, type_id, region_id)
