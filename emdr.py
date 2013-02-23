@@ -43,6 +43,8 @@ def main():
             count['received'] += len(rowset['rows'])
 
             if market_data['resultType'] == 'history':
+                if region_id != 10000002: break
+                most_recent = None
                 for row in rowset['rows']:
                     data = init_data(columns, row, generated_at, type_id, region_id)
 
@@ -52,6 +54,7 @@ def main():
                         if history.quantity != data['quantity']:
                             history.quantity = data['quantity']
                             history.generated_at = generated_at
+                        break
                     else:
                         history = History(data)
                         session.add(history)
