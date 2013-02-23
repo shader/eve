@@ -60,7 +60,7 @@ class Item(Base):
     station_id = Column(Integer, primary_key=True)
     region_id = Column(Integer)
     solar_system_id = Column(Integer)
-    generated_at = Column(DateTime)
+    generated_at = Column(DateTime(timezone=True))
     max_bid = Column(Float)
     min_sell = Column(Float)
     quantity = Column(BigInteger)

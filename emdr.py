@@ -1,6 +1,3 @@
-"""
-Example Python EMDR client.
-"""
 import zlib
 import zmq
 import time
@@ -9,7 +6,7 @@ import simplejson
 import logging
 from operator import attrgetter
 from datetime import datetime, timedelta
-from dateutil import parser, tz
+from dateutil import parser
 from itertools import * 
 from model import *
 from sqlalchemy import func
@@ -33,13 +30,14 @@ def main():
     # Disable filtering.
     subscriber.setsockopt(zmq.SUBSCRIBE, "")
 
-    count = {'rows':0, 'orders':0, 'histories':0, 'items':0, 'received':0}
+    count = {'rows':0, 'orders':0, 'histories':0, 'items':0, 'received':0, 'recent':None}
     while True:
         market_json = zlib.decompress(subscriber.recv())
         market_data = simplejson.loads(market_json)
         columns = market_data['columns']
         for rowset in market_data['rowsets']:
             generated_at = parser.parse(rowset['generatedAt'])
+            if not count['recent'] or generated_at > count['recent']: count['recent'] = generated_at
             type_id = rowset['typeID']
             region_id = rowset['regionID']
             count['received'] += len(rowset['rows'])
@@ -86,10 +84,12 @@ def main():
                                 'id': type_id,
                                 'station_id': station_id,
                                 'region_id': region_id,
-                                'solar_system_id': orders[0].solar_system_id,
-                                'generated_at': generated_at})
+                                'solar_system_id': orders[0].solar_system_id
+                                })
                         session.add(item)
                         count['items']+=1
+                    elif generated_at < item.generated_at:
+                        break;
                                  
                     bid = attrgetter('bid')
                     sort = sorted(orders, key=bid)
@@ -99,7 +99,7 @@ def main():
                     item.min_sell = min(o.price for o in bids[False]) if False in bids else None
 
                     item.quantity = session.query(func.avg(History.quantity)).filter_by(type_id=type_id, region_id=region_id).filter(History.date > datetime.now() - timedelta(days=7)).one()
-                    
+                    item.generated_at = generated_at
 
         try:
             session.commit()
@@ -108,7 +108,7 @@ def main():
             logger.exception(ex)
         
         count['rows'] = count['orders'] + count['histories']
-        sys.stdout.write("\r%(rows)d rows stored out of %(received)d received: %(orders)d orders, %(histories)d history, %(items)d items" % (count))
+        sys.stdout.write("\r%(rows)d rows stored out of %(received)d received: %(orders)d orders, %(histories)d history, %(items)d items. Most recent generated at %(recent)s" % (count))
         sys.stdout.flush()
 
 if __name__ == '__main__':
